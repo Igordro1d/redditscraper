@@ -1,16 +1,10 @@
 import praw
 from dotenv import load_dotenv
 import os
-import logging
 import re
 import yfinance as yf
-
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-for logger_name in ("praw", "prawcore"):
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
+import csv
+from collections import defaultdict
 
 load_dotenv()
 reddit = praw.Reddit(
@@ -32,9 +26,15 @@ def is_stock_symbol(symbol):
         pass
     return False
 
-real_symbols = []
+csv_dict = defaultdict(int)
+potential_stock_symbols = []
 for submission in reddit.subreddit("RVSN").hot(limit=25):
     print(submission.title)
-    potential_symbol = re.findall(r'\b[A-Z]{2,5}\b', submission.title)
-    real_symbols.extend([symbol for symbol in potential_symbol if is_stock_symbol(symbol)])
-print(real_symbols)
+    potential_stock_symbols.extend(re.findall(r'\b[A-Z]{2,5}\b', submission.title))
+
+for symbol in potential_stock_symbols:
+    if is_stock_symbol(symbol):
+        csv_dict[symbol] += 1
+with open('stock_symbol_data.txt', 'w') as csvfile:
+    writer = csv.writer(csvfile, delimiter=':')
+    writer.writerow(csv_dict)
