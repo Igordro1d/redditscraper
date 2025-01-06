@@ -4,6 +4,7 @@ import os
 import re
 import yfinance as yf
 import csv
+import logging
 from collections import defaultdict
 
 load_dotenv()
@@ -22,19 +23,21 @@ def is_stock_symbol(symbol):
         print(stock.info)
         if stock.info.get("regularMarketPrice") is not None:
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Error checking symbol {symbol}: {e}")
     return False
 
-csv_dict = defaultdict(int)
-potential_stock_symbols = []
+symbol_counts = defaultdict(int)
 for submission in reddit.subreddit("RVSN").hot(limit=25):
     print(submission.title)
-    potential_stock_symbols.extend(re.findall(r'\b[A-Z]{2,5}\b', submission.title))
+    potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title)
+    for symbol in potential_symbols:
+        if is_stock_symbol(symbol):
+            symbol_counts[symbol] += 1
 
-for symbol in potential_stock_symbols:
-    if is_stock_symbol(symbol):
-        csv_dict[symbol] += 1
-with open('stock_symbol_data.txt', 'w') as csvfile:
-    writer = csv.writer(csvfile, delimiter=':')
-    writer.writerow(csv_dict)
+
+with open('stock_symbol_data.csv', 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(['Symbol', 'Count'])
+    for symbol, count in symbol_counts.items():
+        writer.writerow([symbol, count])
