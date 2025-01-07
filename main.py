@@ -31,7 +31,7 @@ def is_stock_symbol(symbol):
     return False
 
 symbol_counts = defaultdict(int)
-for submission in reddit.subreddit("RVSN").hot(limit=25):
+for submission in reddit.subreddit("pennystocks").top(time_filter="day"):
     potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title)
     for symbol in potential_symbols:
         if is_stock_symbol(symbol):
