@@ -4,7 +4,6 @@ import os
 import re
 import yfinance as yf
 import csv
-import logging
 from collections import defaultdict
 
 load_dotenv()
@@ -15,21 +14,24 @@ reddit = praw.Reddit(
     user_agent=os.getenv("REDDIT_USER_AGENT"),
     username=os.getenv("REDDIT_USERNAME")
 )
+ignored_words = {"DD", "FYI"}
 
 def is_stock_symbol(symbol):
     try:
         stock = yf.Ticker(symbol)
-        print(f"Checking symbol: {symbol}")
-        print(stock.info)
-        if stock.info.get("regularMarketPrice") is not None:
+        stock_info = stock.info
+        if symbol in ignored_words:
+            return False
+        if stock_info is not None:
             return True
+        else:
+            print(f"{symbol} is not a valid stock symbol.")
     except Exception as e:
-        logging.error(f"Error checking symbol {symbol}: {e}")
+        print(f"Error checking symbol {symbol}: {e}")
     return False
 
 symbol_counts = defaultdict(int)
 for submission in reddit.subreddit("RVSN").hot(limit=25):
-    print(submission.title)
     potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title)
     for symbol in potential_symbols:
         if is_stock_symbol(symbol):
