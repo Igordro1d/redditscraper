@@ -5,7 +5,9 @@ import re
 import yfinance as yf
 import csv
 from collections import defaultdict
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
+analyzer = SentimentIntensityAnalyzer()
 load_dotenv()
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),
@@ -43,3 +45,6 @@ with open('stock_symbol_data.csv', 'w', newline='') as csvfile:
     writer.writerow(['Symbol', 'Count'])
     for symbol, count in symbol_counts.items():
         writer.writerow([symbol, count])
+
+
+
