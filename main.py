@@ -21,7 +21,8 @@ reddit = praw.Reddit(
     user_agent=os.getenv("REDDIT_USER_AGENT"),
     username=os.getenv("REDDIT_USERNAME")
 )
-ignored_words = ("DD", "FYI")
+
+ignored_words = ("DD", "FYI", "CASH", "USA", "YOLO", "FOMO", "OG", "MONEY", "PWOAH", "ONLY", "US")
 
 def is_stock_symbol(stock_symbol):
     """
@@ -63,7 +64,7 @@ for submission in reddit.subreddit("pennystocks").top(time_filter="day"):
 #calculates total sentiment of each stock symbol by iterating through the dictionary holding each individual score
 average_sentiments = {symbol: sum(sentiments) / len(sentiments) for symbol, sentiments in symbol_sentiment.items()}
 
-
+stock_data = {}
 with open('stock_symbol_data.csv', 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Symbol', 'Count', 'Average Sentiment'])
@@ -72,6 +73,10 @@ with open('stock_symbol_data.csv', 'w', newline='') as csvfile:
         #defaults to 0 if no sentiment score
         avg_sentiment = average_sentiments.get(symbol, 0)
         writer.writerow([symbol, count, avg_sentiment])
+        stock_data[symbol] = {'mentions': count, 'sentiment': avg_sentiment}
 
+def sort_by_mentions(data):
+    return sorted(data.items(), key=lambda x: x[1]['mentions'], reverse=True)
 
-
+def sort_by_sentiment(data):
+    return sorted(data.items(), key=lambda x: x[1]['sentiment'], reverse=True)
