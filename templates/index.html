@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Pennystock Sentiment Dashboard</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Reddit Pennystock Sentiment Dashboard</h1>
+        <table id="stockTable">
+            <thead>
+                <tr>
+                    <th>Stock Symbol</th>
+                    <th>Mentions</th>
+                    <th>Average Sentiment</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    <script>
+        async function fetchStockData() {
+            try {
+                const response = await fetch('http://localhost:5000/api/stock-data');
+                if (!response.ok) {
+                    throw new Error('Server error');
+                }
+                const data = await response.json();
+                
+                const tableBody = document.querySelector('#stockTable tbody');
+                tableBody.innerHTML = '';
+                
+                data.forEach(stock => {
+                    const row = tableBody.insertRow();
+                    row.insertCell(0).textContent = stock.symbol;
+                    row.insertCell(1).textContent = stock.mentions;
+                    row.insertCell(2).textContent = stock.sentiment.toFixed(3);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading data. Check if the server is running.');
+            }
+        }
+        fetchStockData();
+    </script>
+</body>
+</html>

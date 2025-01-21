@@ -3,9 +3,17 @@ from dotenv import load_dotenv
 import os
 import re
 import yfinance as yf
-import csv
 from collections import defaultdict
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from flask import Flask, render_template, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*"
+    }
+})
 
 #initialises vader sentiment object
 analyzer = SentimentIntensityAnalyzer()
@@ -42,41 +50,53 @@ def is_stock_symbol(stock_symbol):
         print(f"Error checking symbol {stock_symbol}: {e}")
     return False
 
-symbol_counts = defaultdict(int)
-symbol_sentiment = defaultdict(list)
 
-#goes through the top submissions in a day from x subreddit
-for submission in reddit.subreddit("pennystocks").top(time_filter="day"):
-    # finds potential stock symbols using regex
-    potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title + "" + submission.selftext)
+def get_stock_data():
+    symbol_counts = defaultdict(int)
+    symbol_sentiment = defaultdict(list)
 
-    for symbol in potential_symbols:
-        if is_stock_symbol(symbol):
-            symbol_counts[symbol] += 1
+    for submission in reddit.subreddit("pennystocks").top(time_filter="day"):
+        potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title + "" + submission.selftext)
 
-            descr_sentiment = analyzer.polarity_scores(submission.selftext)["compound"]
-            title_sentiment = analyzer.polarity_scores(submission.title)["compound"]
+        for symbol in potential_symbols:
+            if is_stock_symbol(symbol):
+                symbol_counts[symbol] += 1
 
-            #calculates the avg sentiment across the title and description
-            avg_sentiment = (title_sentiment + descr_sentiment) / 2
-            symbol_sentiment[symbol].append(avg_sentiment)
+                descr_sentiment = analyzer.polarity_scores(submission.selftext)["compound"]
+                title_sentiment = analyzer.polarity_scores(submission.title)["compound"]
 
-#calculates total sentiment of each stock symbol by iterating through the dictionary holding each individual score
-average_sentiments = {symbol: sum(sentiments) / len(sentiments) for symbol, sentiments in symbol_sentiment.items()}
-
-stock_data = {}
-with open('stock_symbol_data.csv', 'w', newline='') as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(['Symbol', 'Count', 'Average Sentiment'])
+                avg_sentiment = (title_sentiment + descr_sentiment) / 2
+                symbol_sentiment[symbol].append(avg_sentiment)
+    #calculates total sentiment of each stock symbol by iterating through the dictionary holding each individual score
+    average_sentiments = {symbol: sum(sentiments) / len(sentiments) for symbol, sentiments in symbol_sentiment.items()}
+    stock_data = []
     for symbol in symbol_counts:
-        count = symbol_counts[symbol]
-        #defaults to 0 if no sentiment score
-        avg_sentiment = average_sentiments.get(symbol, 0)
-        writer.writerow([symbol, count, avg_sentiment])
-        stock_data[symbol] = {'mentions': count, 'sentiment': avg_sentiment}
+        stock_data.append({
+            'symbol': symbol,
+            'mentions': symbol_counts[symbol],
+            'sentiment': average_sentiments.get(symbol, 0)
+        })
+    return stock_data
+
+
 
 def sort_by_mentions(data):
     return sorted(data.items(), key=lambda x: x[1]['mentions'], reverse=True)
 
 def sort_by_sentiment(data):
     return sorted(data.items(), key=lambda x: x[1]['sentiment'], reverse=True)
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/api/stock-data')
+def stock_data():
+    try:
+        data = get_stock_data()
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
