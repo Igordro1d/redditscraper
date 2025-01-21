@@ -19,6 +19,13 @@ h1 {
     color: #333;
 }
 
+#loading {
+    font-size: 1.2em;
+    color: #555;
+    text-align: center;
+    margin: 20px 0;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;

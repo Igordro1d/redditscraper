@@ -9,6 +9,7 @@
 <body>
     <div class="container">
         <h1>Reddit Pennystock Sentiment Dashboard</h1>
+        <div id="loading">Loading stock data...</div>
         <table id="stockTable">
             <thead>
                 <tr>
@@ -25,23 +26,27 @@
         async function fetchStockData() {
             try {
                 const response = await fetch('http://localhost:5000/api/stock-data');
-                if (!response.ok) {
-                    throw new Error('Server error');
-                }
                 const data = await response.json();
                 
                 const tableBody = document.querySelector('#stockTable tbody');
+                const loadingDiv = document.querySelector('#loading');
+                
+                // Clear existing rows
                 tableBody.innerHTML = '';
                 
+                // Add new rows
                 data.forEach(stock => {
                     const row = tableBody.insertRow();
                     row.insertCell(0).textContent = stock.symbol;
                     row.insertCell(1).textContent = stock.mentions;
                     row.insertCell(2).textContent = stock.sentiment.toFixed(3);
                 });
+                
+                // Hide loading message
+                loadingDiv.style.display = 'none';
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error loading data. Check if the server is running.');
+                console.error('Error fetching stock data:', error);
+                document.querySelector('#loading').textContent = 'Error loading data. Please try again.';
             }
         }
         fetchStockData();
