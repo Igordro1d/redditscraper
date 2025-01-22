@@ -42,3 +42,23 @@ th {
     background-color: #007bff;
     color: #fff;
 }
+
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sort-icon {
+    display: inline-block;
+    margin-left: 5px;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+.sortable:hover {
+    background-color: #0056b3;
+}
+
+.sortable:hover .sort-icon {
+    opacity: 1;
+}
