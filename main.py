@@ -11,6 +11,7 @@ from flask import request
 import traceback
 from functools import lru_cache
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
@@ -67,43 +68,67 @@ def is_stock_symbol(stock_symbol):
     except Exception as e:
         print(f"Error checking symbol {stock_symbol}: {e}")
 
+def find_stock_symbols(text):
+    pattern = [
+       r'\$[A-Z]{1,5}\b',
+       r'\b[A-Z]{2,5}\b'
+   ]
+
+    symbols = set()
+    for p in pattern:
+        found_symbols = re.findall(p, text)
+
+        cleaned_symbols = {symbol.replace("$", "") for symbol in found_symbols}
+        symbols.update(cleaned_symbols)
+
+    return {symbol for symbol in symbols if is_stock_symbol(symbol)}
+
+def get_weighted_sentiment(title, body):
+   title_sentiment = analyzer.polarity_scores(title)["compound"] * 0.6
+   body_sentiment = analyzer.polarity_scores(body)["compound"] * 0.4
+   return title_sentiment + body_sentiment
+
+def process_single_submission(submission):
+   text = f"{submission.title} {submission.selftext}"
+   symbols = find_stock_symbols(text)
+   sentiment = get_weighted_sentiment(submission.title, submission.selftext)
+   return symbols, sentiment
+
+def get_all_submissions():
+    return list(reddit.subreddit("pennystocks").top(time_filter="hour"))
+
+def process_submission(submissions):
+    symbol_data = defaultdict(lambda: {"mentions": 0, "sentiments": []})
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = list(executor.map(process_single_submission, submissions))
+        for symbols, sentiment in results:
+            for symbol in symbols:
+                symbol_data[symbol]['mentions'] += 1
+                symbol_data[symbol]['sentiments'].append(sentiment)
+    return symbol_data
+
+def format_data_for_frontend(symbol_data):
+    formatted_data = []
+
+    for symbol, data in symbol_data.items():
+        avg_sentiment = sum(data['sentiments']) / len(data['sentiments']) if data['sentiments'] else 0
+        formatted_data.append({
+            'symbol': symbol,
+            'mentions': data['mentions'],
+            'sentiment': avg_sentiment
+        })
+    return formatted_data
+
 @lru_cache(maxsize=1)
 def get_stock_data():
     #force cache refresh every 5 min
     timestamp = int(time.time() / 300)
     print(f"Fetching fresh data at timestamp: {timestamp}")
 
-    #track frequency of stock mentions and their sentiment scores
-    symbol_counts = defaultdict(int)
-    symbol_sentiment = defaultdict(list)
-
-    for submission in reddit.subreddit("pennystocks").top(time_filter="hour"):
-        #find all uppercase words 2-5 letters long that could be stock symbols
-        potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', submission.title + "" + submission.selftext)
-
-        for symbol in potential_symbols:
-            if is_stock_symbol(symbol):
-                symbol_counts[symbol] += 1
-
-                #calculate sentiment scores for both title and post content
-                descr_sentiment = analyzer.polarity_scores(submission.selftext)["compound"]
-                title_sentiment = analyzer.polarity_scores(submission.title)["compound"]
-
-                avg_sentiment = (title_sentiment + descr_sentiment) / 2
-                symbol_sentiment[symbol].append(avg_sentiment)
-    #calculates total sentiment of each stock symbol by iterating through the dictionary holding each individual score
-    average_sentiments = {symbol: sum(sentiments) / len(sentiments) for symbol, sentiments in symbol_sentiment.items()}
-
-    #format data for frontend display
-    stock_data = []
-    for symbol in symbol_counts:
-        stock_data.append({
-            'symbol': symbol,
-            'mentions': symbol_counts[symbol],
-            'sentiment': average_sentiments.get(symbol, 0)
-        })
-    return stock_data
-
+    submissions = get_all_submissions()
+    symbol_data = process_submission(submissions)
+    return format_data_for_frontend(symbol_data)
 
 #sort functions for API endpoints
 def sort_by_mentions(data, ascending = False):
